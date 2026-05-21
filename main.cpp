@@ -163,6 +163,9 @@ bool run_evaluate_tests()
 
 	const char* bad_exprs[] = {
 		"(1 + (12 * 2)",
+		"1 / 0",
+		"1 + + 2",
+		"+ 1",
 	};
 	for (const char* expr : bad_exprs) {
 		int result;
