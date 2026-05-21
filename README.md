@@ -11,10 +11,21 @@ make
 ./calc "1 + 2 * 3"
 ```
 
-Tested with GCC 16 on Linux and Clang 17 on macOS.
+On Windows use:
+```
+build.bat
+.\calc 1 + 2 * 3
+```
+
+Tested with GCC 16 on Linux, Clang 17 on macOS and Visual Studio 2022.
 
 ## Test
+On Linux and macOS use:
 ```
 make test
 ```
 
+On Windows use:
+```
+build.bat test
+```

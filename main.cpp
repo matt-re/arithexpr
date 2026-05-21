@@ -1,4 +1,5 @@
 #include <charconv>
+#include <locale>
 #include <iostream>
 #include <span>
 #include <stack>

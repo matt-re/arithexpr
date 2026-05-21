@@ -1,6 +1,8 @@
 *
 !.gitignore
+!.gitattributes
 !*.cpp
 !Makefile
 !LICENSE
 !README.md
+!build.bat
