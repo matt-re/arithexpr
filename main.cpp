@@ -64,7 +64,7 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 		}
 		//const std::size_t end = i - start;
 
-		// The word beween start and end may contain a combination of numbers, operators and parentheses
+		// The word between start and end may contain a combination of numbers, operators and parentheses
 		// that need to be split
 		std::size_t cur = start;
 		while (cur < i) {
