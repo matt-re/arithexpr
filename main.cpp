@@ -97,6 +97,8 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 
 bool evaluate(const char* expression, int& result)
 {
+	// Transform the infix expression to a postfix expression to make the evaluation easier
+	// by removing the parentheses and explicit operator ordering
 	std::vector<std::string_view> tokens = postfix_expr_from_infix(tokenize(expression));
 	std::stack<int> stack;
 	for (std::string_view token : tokens) {
@@ -128,6 +130,9 @@ bool evaluate(const char* expression, int& result)
 				break;
 			}
 		} else {
+			// The tokenize and postfix_expr_from_infix functions do not validate input and
+			// badly formed expression can be evaluated. At this point a nubmer is expected
+			// and from_chars will return an error with badly formed input.
 			int value;
 			const char* end = token.data() + token.size();
 			auto [ptr, ec] = std::from_chars(token.data(), end, value);
