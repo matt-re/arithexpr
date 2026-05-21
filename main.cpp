@@ -241,8 +241,18 @@ bool run_tests(void)
 	return success;
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
-	return run_tests() ? 0 : 1;
+	if (argc < 2) {
+		return run_tests() ? 0 : 1;
+	}
+
+	int result;
+	if (!evaluate(argv[1], result)) {
+		std::cout << "error: invalid expression\n";
+		return 1;
+	}
+	std::cout << result << "\n";
+	return 0;
 }
 
