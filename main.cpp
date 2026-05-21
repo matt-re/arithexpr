@@ -1,3 +1,4 @@
+#include <charconv>
 #include <iostream>
 #include <span>
 #include <stack>
@@ -83,6 +84,99 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 	return tokens;
 }
 
+bool evaluate(const char* expression, int& result)
+{
+	std::vector<std::string_view> tokens = postfix_expr_from_infix(tokenize(expression));
+	std::stack<int> stack;
+	for (std::string_view token : tokens) {
+		if (token == "+" || token == "-" || token == "*" || token == "/") {
+			if (stack.size() < 2) {
+				return false;
+			}
+
+			int b = stack.top();
+			stack.pop();
+			int a = stack.top();
+			stack.pop();
+
+			switch (token[0]) {
+			case '+':
+				stack.push(a + b);
+				break;
+			case '-':
+				stack.push(a - b);
+				break;
+			case '*':
+				stack.push(a * b);
+				break;
+			case '/':
+				if (b == 0) {
+					return false;
+				}
+				stack.push(a / b);
+				break;
+			}
+		} else {
+			int value;
+			const char* end = token.data() + token.size();
+			auto [ptr, ec] = std::from_chars(token.data(), end, value);
+			if (ec != std::errc() || ptr != end) {
+				return false;
+			}
+			stack.push(value);
+		}
+	}
+
+	if (stack.size() != 1) {
+		return false;
+	}
+
+	result = stack.top();
+	return true;
+}
+
+bool run_evaluate_tests()
+{
+	bool success = true;
+
+	std::pair<const char*, int> inputs[] = {
+		{ "1 + 3 * 4",          16 },
+		{ "1 + 3",               4 },
+		{ "(1 + 3) * 2",         8 },
+		{ "(4 / 2) + 6",         8 },
+		{ "4 + (12 / (1 * 2))", 10 },
+	};
+	for (auto [expr, expected_result] : inputs) {
+		int result;
+		bool b = evaluate(expr, result);
+		if (b && result == expected_result) {
+			std::cerr << "Passed Evaluate " << expr << "\n";
+		} else {
+			if (!b) {
+				std::cerr << "Failed Evaluate " << expr << " invalid expression\n";
+			} else {
+				std::cerr << "Failed Evaluate " << expr << " Actual Result: " << result << "\n";
+			}
+			success = false;
+		}
+	}
+
+	const char* bad_exprs[] = {
+		"(1 + (12 * 2)",
+	};
+	for (const char* expr : bad_exprs) {
+		int result;
+		if (!evaluate(expr, result)) {
+			std::cerr << "Passed Evaluate Bad Expression " << expr << "\n";
+		} else {
+			std::cerr << "Failed Evaluate Bad Expression " << expr << "\n";
+			success = false;
+		}
+	}
+
+	return success;
+}
+
 bool run_postfix_from_infix_tests()
 {
 	bool success = true;
@@ -143,6 +237,7 @@ bool run_tests(void)
 	bool success = true;
 	success &= run_tokenize_tests();
 	success &= run_postfix_from_infix_tests();
+	success &= run_evaluate_tests();
 	return success;
 }
 
