@@ -1,13 +1,14 @@
 #include <charconv>
 #include <locale>
 #include <iostream>
+#include <optional>
 #include <span>
 #include <stack>
 #include <string>
 #include <string_view>
 #include <vector>
 
-std::vector<std::string_view> postfix_expr_from_infix(std::span<const std::string_view> infix_expr)
+std::optional<std::vector<std::string_view>> postfix_expr_from_infix(std::span<const std::string_view> infix_expr)
 {
 	// Use the Shunting Yard algorithm to convert an infix expression to postfix expression
 	std::vector<std::string_view> postfix_expr;
@@ -22,9 +23,10 @@ std::vector<std::string_view> postfix_expr_from_infix(std::span<const std::strin
 				stack.pop();
 			}
 			// Remove the opening parenthesis
-			if (!stack.empty()) {
-				stack.pop();
+			if (stack.empty()) {
+				return std::nullopt;
 			}
+			stack.pop();
 		} else if (token == "+" || token == "-" || token == "*" || token == "/") {
 			// For this app all operators have the same precedence, as shown in the given spec document
 			// Copy all operators pushed so far to result
@@ -40,6 +42,9 @@ std::vector<std::string_view> postfix_expr_from_infix(std::span<const std::strin
 	}
 	// Any remaining operators copy to result
 	while (!stack.empty()) {
+		if (stack.top() == "(") {
+			return std::nullopt;
+		}
 		postfix_expr.push_back(stack.top());
 		stack.pop();
 	}
@@ -80,7 +85,7 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 				   && (tokens.empty() || tokens.back() == "(" || tokens.back() == "+" || tokens.back() == "-"
 				       || tokens.back() == "*" || tokens.back() == "/")) {
 				// Support negative numbers
-				// TODO Support unary postivie numbers e.g. +1 ?
+				// TODO Support unary positive numbers e.g. +1 ?
 				const std::size_t beg = cur;
 				cur++;
 				while (cur < i && std::isdigit(expr[cur], loc)) {
@@ -100,9 +105,12 @@ bool evaluate(const char* expression, int& result)
 {
 	// Transform the infix expression to a postfix expression to make the evaluation easier
 	// by removing the parentheses and explicit operator ordering
-	std::vector<std::string_view> tokens = postfix_expr_from_infix(tokenize(expression));
+	std::optional<std::vector<std::string_view>> tokens = postfix_expr_from_infix(tokenize(expression));
+	if (!tokens) {
+		return false;
+	}
 	std::stack<int> stack;
-	for (std::string_view token : tokens) {
+	for (std::string_view token : *tokens) {
 		if (token == "+" || token == "-" || token == "*" || token == "/") {
 			if (stack.size() < 2) {
 				return false;
@@ -132,7 +140,7 @@ bool evaluate(const char* expression, int& result)
 			}
 		} else {
 			// The tokenize and postfix_expr_from_infix functions do not validate input and
-			// badly formed expression can be evaluated. At this point a nubmer is expected
+			// badly formed expression can be evaluated. At this point a number is expected
 			// and from_chars will return an error with badly formed input.
 			int value;
 			const char* end = token.data() + token.size();
@@ -187,6 +195,8 @@ bool run_evaluate_tests()
 		"1 / 0",
 		"1 + + 2",
 		"+ 1",
+		"1)",
+		"1(",
 	};
 	for (const char* expr : bad_exprs) {
 		int result;
@@ -210,22 +220,38 @@ bool run_postfix_from_infix_tests()
 		{ "(1 + 3) * 2",        { "1", "3", "+", "2", "*" } },
 		{ "(4 / 2) + 6",        { "4", "2", "/", "6", "+" } },
 		{ "4 + (12 / (1 * 2))", { "4", "12", "1", "2", "*", "/", "+" } },
-		// Bad input causes hanging parenthesis, conversion lets them through so keep in test
-		{ "(1 + (12 * 2)",      { "1", "12", "2", "*", "+", "(" } },
 	};
 	for (auto [expr, expected_result] : inputs) {
-		std::vector<std::string_view> result = postfix_expr_from_infix(tokenize(expr));
-		if (result == expected_result) {
+		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
+		if (!result) {
+			std::cerr << "Failed Infix to Postfix " << expr << " Invalid Expression\n";
+			success = false;
+		} else if (*result == expected_result) {
 			std::cerr << "Passed Infix to Postfix " << expr << "\n";
 		} else {
 			std::cerr << "Failed Infix to Postfix " << expr << " Actual Result: ";
-			for (auto x : result) {
+			for (auto x : *result) {
 				std::cerr << x << ", ";
 			}
 			std::cerr << "\n";
 			success = false;
 		}
 	}
+
+	std::string bad_exprs[] = {
+		"(1 + (12 * 2)",
+		 "1 + (12 * 2))",
+	};
+	for (std::string expr : bad_exprs) {
+		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
+		if (!result) {
+			std::cerr << "Passed Infix to Postfix Bad Expression " << expr << "\n";
+		} else {
+			std::cerr << "Failed Infix to Postfix Bad Expression " << expr << "\n";
+			success = false;
+		}
+	}
+
 	return success;
 }
 
