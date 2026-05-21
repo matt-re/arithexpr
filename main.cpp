@@ -8,25 +8,25 @@
 
 std::vector<std::string_view> postfix_expr_from_infix(std::span<const std::string_view> infix_expr)
 {
-	// Use the Shunting Yarn algorithm to convert an infix expression to postfix expression
+	// Use the Shunting Yard algorithm to convert an infix expression to postfix expression
 	std::vector<std::string_view> postfix_expr;
 	std::stack<std::string_view> stack;
 	for (std::string_view token : infix_expr) {
 		if (token == "(") {
 			stack.push(token);
 		} else if (token == ")") {
-			// On closing parenthese copy all operators to result
+			// On closing parenthesis copy all operators to result
 			while (!stack.empty() && stack.top() != "(") {
 				postfix_expr.push_back(stack.top());
 				stack.pop();
 			}
-			// Remove the opening parenthese
+			// Remove the opening parenthesis
 			if (!stack.empty()) {
 				stack.pop();
 			}
 		} else if (token == "+" || token == "-" || token == "*" || token == "/") {
-			// For this app all operators have the same precendence, as shown in the given spec document
-			// Copy all operators push so far to result
+			// For this app all operators have the same precedence, as shown in the given spec document
+			// Copy all operators pushed so far to result
 			while (!stack.empty() && stack.top() != "(") {
 				postfix_expr.push_back(stack.top());
 				stack.pop();
@@ -37,7 +37,7 @@ std::vector<std::string_view> postfix_expr_from_infix(std::span<const std::strin
 			postfix_expr.push_back(token);
 		}
 	}
-	// Any remaing operators copy to result
+	// Any remaining operators copy to result
 	while (!stack.empty()) {
 		postfix_expr.push_back(stack.top());
 		stack.pop();
@@ -186,7 +186,7 @@ bool run_postfix_from_infix_tests()
 		{ "(1 + 3) * 2",        { "1", "3", "+", "2", "*" } },
 		{ "(4 / 2) + 6",        { "4", "2", "/", "6", "+" } },
 		{ "4 + (12 / (1 * 2))", { "4", "12", "1", "2", "*", "/", "+" } },
-		// Bad input cause hanging parenthese, conversion lets them through so keep in test
+		// Bad input cause hanging parenthesis, conversion lets them through so keep in test
 		{ "(1 + (12 * 2)",      { "1", "12", "2", "*", "+", "(" } },
 	};
 	for (auto [expr, expected_result] : inputs) {
