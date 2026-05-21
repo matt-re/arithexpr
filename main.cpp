@@ -75,6 +75,17 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 					cur++;
 				}
 				tokens.push_back(expr.substr(beg, cur - beg));
+			} else if (expr[cur] == '-' && (cur+1 < i) && std::isdigit(expr[cur+1], loc)
+				   && (tokens.empty() || tokens.back() == "(" || tokens.back() == "+" || tokens.back() == "-"
+				       || tokens.back() == "*" || tokens.back() == "/")) {
+				// Support negative numbers
+				// TODO Support unary postivie numbers e.g. +1 ?
+				const std::size_t beg = cur;
+				cur++;
+				while (cur < i && std::isdigit(expr[cur], loc)) {
+					cur++;
+				}
+				tokens.push_back(expr.substr(beg, cur - beg));
 			} else {
 				tokens.push_back(expr.substr(cur, 1));
 				cur++;
@@ -145,6 +156,10 @@ bool run_evaluate_tests()
 		{ "(1 + 3) * 2",         8 },
 		{ "(4 / 2) + 6",         8 },
 		{ "4 + (12 / (1 * 2))", 10 },
+		{ "-1",                 -1 },
+		{ "-1 * 2",             -2 },
+		{ "-1+2",                1 },
+		{ "1--2",                3 },
 	};
 	for (auto [expr, expected_result] : inputs) {
 		int result;
@@ -189,7 +204,7 @@ bool run_postfix_from_infix_tests()
 		{ "(1 + 3) * 2",        { "1", "3", "+", "2", "*" } },
 		{ "(4 / 2) + 6",        { "4", "2", "/", "6", "+" } },
 		{ "4 + (12 / (1 * 2))", { "4", "12", "1", "2", "*", "/", "+" } },
-		// Bad input cause hanging parenthesis, conversion lets them through so keep in test
+		// Bad input causes hanging parenthesis, conversion lets them through so keep in test
 		{ "(1 + (12 * 2)",      { "1", "12", "2", "*", "+", "(" } },
 	};
 	for (auto [expr, expected_result] : inputs) {
