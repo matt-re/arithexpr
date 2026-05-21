@@ -4,11 +4,13 @@ SETLOCAL
 DIR "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" > NUL 2>&1
 IF ERRORLEVEL 1 (
     ECHO Cannot find Visual Studio Install Path
+    GOTO :EOF
 )
 FOR /F "usebackq tokens=*" %%I IN (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) DO SET VS_INSTALL_DIR=%%I
 DIR "%VS_INSTALL_DIR%\Common7\Tools\VsDevCmd.bat" > NUL 2>&1
 IF ERRORLEVEL 1 (
     ECHO Cannot find Visual Studio Command Prompt
+    GOTO :EOF
 )
 REM ECHO Found Visual Studio at %VS_INSTALL_DIR%
 
