@@ -247,8 +247,16 @@ int main(int argc, char** argv)
 		return run_tests() ? 0 : 1;
 	}
 
+	std::string expr;
+	for (const char* arg : std::span(argv + 1, static_cast<size_t>(argc) - 1)) {
+		if (!expr.empty()) {
+			expr += ' ';
+		}
+		expr += arg;
+	}
+
 	int result;
-	if (!evaluate(argv[1], result)) {
+	if (!evaluate(expr.c_str(), result)) {
 		std::cout << "error: invalid expression\n";
 		return 1;
 	}
