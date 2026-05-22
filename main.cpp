@@ -85,7 +85,7 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 				tokens.push_back(expr.substr(beg, cur - beg));
 			} else if (expr[cur] == '-' && (cur+1 < i) && std::isdigit(expr[cur+1], loc)
 				   && (tokens.empty() || tokens.back() == "(" || tokens.back() == "+" || tokens.back() == "-"
-				       || tokens.back() == "*" || tokens.back() == "/")) {
+				   || tokens.back() == "*" || tokens.back() == "/")) {
 				// Support negative numbers
 				// TODO Support unary positive numbers e.g. +1 ?
 				const std::size_t beg = cur;
@@ -244,7 +244,7 @@ bool run_postfix_from_infix_tests()
 
 	std::string bad_exprs[] = {
 		"(1 + (12 * 2)",
-		 "1 + (12 * 2))",
+		"1 + (12 * 2))",
 	};
 	for (const auto& expr : bad_exprs) {
 		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
