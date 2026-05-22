@@ -28,8 +28,10 @@ std::optional<std::vector<std::string_view>> postfix_expr_from_infix(std::span<c
 			}
 			stack.pop();
 		} else if (token == "+" || token == "-" || token == "*" || token == "/") {
-			// For this app all operators have the same precedence, as shown in the given spec document
-			// Copy all operators pushed so far to result
+			// For this app all operators have the same precedence, as shown in the given spec document,
+			// therefore copy all operators pushed so far to result
+			// To support operators with different precedence then only pop operators with higher, or
+			// same precedence and left associative
 			while (!stack.empty() && stack.top() != "(") {
 				postfix_expr.push_back(stack.top());
 				stack.pop();
@@ -104,7 +106,7 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 bool evaluate(const char* expression, int& result)
 {
 	// Transform the infix expression to a postfix expression to make the evaluation easier
-	// by removing the parentheses and explicit operator ordering
+	// by removing the parentheses and having explicit operator ordering
 	std::optional<std::vector<std::string_view>> tokens = postfix_expr_from_infix(tokenize(expression));
 	if (!tokens) {
 		return false;
