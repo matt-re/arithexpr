@@ -170,6 +170,7 @@ bool run_evaluate_tests()
 		{ "(1 + 3) * 2",         8 },
 		{ "(4 / 2) + 6",         8 },
 		{ "4 + (12 / (1 * 2))", 10 },
+		{ "4+(12/(1*2))",       10 },
 		{ "-1",                 -1 },
 		{ "-1 * 2",             -2 },
 		{ "-1+2",                1 },
@@ -220,6 +221,7 @@ bool run_postfix_from_infix_tests()
 		{ "(1 + 3) * 2",        { "1", "3", "+", "2", "*" } },
 		{ "(4 / 2) + 6",        { "4", "2", "/", "6", "+" } },
 		{ "4 + (12 / (1 * 2))", { "4", "12", "1", "2", "*", "/", "+" } },
+		{ "4+(12/(1*2))",       { "4", "12", "1", "2", "*", "/", "+" } },
 	};
 	for (auto [expr, expected_result] : inputs) {
 		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
@@ -255,7 +257,7 @@ bool run_postfix_from_infix_tests()
 	return success;
 }
 
-bool run_tokenize_tests(void)
+bool run_tokenize_tests()
 {
 	bool success = true;
 	std::pair<std::string, std::vector<std::string_view>> inputs[] = {
@@ -264,6 +266,7 @@ bool run_tokenize_tests(void)
 		{ "(1 + 3) * 2",        { "(", "1", "+", "3", ")", "*", "2" } },
 		{ "(4 / 2) + 6",        { "(", "4", "/", "2", ")", "+", "6" } },
 		{ "4 + (12 / (1 * 2))", { "4", "+", "(", "12", "/", "(", "1", "*", "2", ")", ")" } },
+		{ "4+(12/(1*2))",       { "4", "+", "(", "12", "/", "(", "1", "*", "2", ")", ")" } },
 		{ "(1 + (12 * 2)",      { "(", "1", "+", "(", "12", "*", "2", ")" } },
 	};
 	for (auto [expr, expected_result] : inputs) {
@@ -282,7 +285,7 @@ bool run_tokenize_tests(void)
 	return success;
 }
 
-bool run_tests(void)
+bool run_tests()
 {
 	bool success = true;
 	success &= run_tokenize_tests();
