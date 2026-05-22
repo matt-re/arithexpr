@@ -178,7 +178,7 @@ bool run_evaluate_tests()
 		{ "-1+2",                1 },
 		{ "1--2",                3 },
 	};
-	for (auto [expr, expected_result] : inputs) {
+	for (const auto& [expr, expected_result] : inputs) {
 		int result;
 		bool b = evaluate(expr, result);
 		if (b && result == expected_result) {
@@ -201,7 +201,7 @@ bool run_evaluate_tests()
 		"1)",
 		"1(",
 	};
-	for (const char* expr : bad_exprs) {
+	for (const auto& expr : bad_exprs) {
 		int result;
 		if (!evaluate(expr, result)) {
 			std::cerr << "Passed Evaluate Bad Expression " << expr << "\n";
@@ -225,7 +225,7 @@ bool run_postfix_from_infix_tests()
 		{ "4 + (12 / (1 * 2))", { "4", "12", "1", "2", "*", "/", "+" } },
 		{ "4+(12/(1*2))",       { "4", "12", "1", "2", "*", "/", "+" } },
 	};
-	for (auto [expr, expected_result] : inputs) {
+	for (const auto& [expr, expected_result] : inputs) {
 		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
 		if (!result) {
 			std::cerr << "Failed Infix to Postfix " << expr << " Invalid Expression\n";
@@ -234,7 +234,7 @@ bool run_postfix_from_infix_tests()
 			std::cerr << "Passed Infix to Postfix " << expr << "\n";
 		} else {
 			std::cerr << "Failed Infix to Postfix " << expr << " Actual Result: ";
-			for (auto x : *result) {
+			for (const auto& x : *result) {
 				std::cerr << x << ", ";
 			}
 			std::cerr << "\n";
@@ -246,7 +246,7 @@ bool run_postfix_from_infix_tests()
 		"(1 + (12 * 2)",
 		 "1 + (12 * 2))",
 	};
-	for (std::string expr : bad_exprs) {
+	for (const auto& expr : bad_exprs) {
 		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
 		if (!result) {
 			std::cerr << "Passed Infix to Postfix Bad Expression " << expr << "\n";
@@ -271,13 +271,13 @@ bool run_tokenize_tests()
 		{ "4+(12/(1*2))",       { "4", "+", "(", "12", "/", "(", "1", "*", "2", ")", ")" } },
 		{ "(1 + (12 * 2)",      { "(", "1", "+", "(", "12", "*", "2", ")" } },
 	};
-	for (auto [expr, expected_result] : inputs) {
+	for (const auto& [expr, expected_result] : inputs) {
 		std::vector<std::string_view> result = tokenize(expr);
 		if (result == expected_result) {
 			std::cerr << "Passed Tokenize " << expr << "\n";
 		} else {
 			std::cerr << "Failed Tokenize " << expr << " Actual Result: ";
-			for (auto x : result) {
+			for (const auto& x : result) {
 				std::cerr << x << ", ";
 			}
 			std::cerr << "\n";
