@@ -70,34 +70,29 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 		while (i < expr.size() && !std::isspace(expr[i], loc)) {
 			i++;
 		}
-		//const std::size_t end = i - start;
+		const std::size_t end = i;
 
 		// The word between start and end may contain a combination of numbers, operators and parentheses
 		// that need to be split
 		std::size_t cur = start;
-		while (cur < i) {
-			if (std::isdigit(expr[cur], loc)) {
-				const std::size_t beg = cur;
-				cur++;
-				while (cur < i && std::isdigit(expr[cur], loc)) {
-					cur++;
-				}
-				tokens.push_back(expr.substr(beg, cur - beg));
-			} else if (expr[cur] == '-' && (cur+1 < i) && std::isdigit(expr[cur+1], loc)
-				   && (tokens.empty() || tokens.back() == "(" || tokens.back() == "+" || tokens.back() == "-"
-				   || tokens.back() == "*" || tokens.back() == "/")) {
-				// Support negative numbers
-				// TODO Support unary positive numbers e.g. +1 ?
-				const std::size_t beg = cur;
-				cur++;
-				while (cur < i && std::isdigit(expr[cur], loc)) {
-					cur++;
-				}
-				tokens.push_back(expr.substr(beg, cur - beg));
-			} else {
-				tokens.push_back(expr.substr(cur, 1));
+		while (cur < end) {
+			const std::size_t beg = cur;
+			cur++;
+
+			const bool is_digit =
+				std::isdigit(expr[beg], loc)
+			        || (expr[beg] == '-'
+			            && (beg + 1 < end) && std::isdigit(expr[beg + 1], loc)
+			            && (tokens.empty() || tokens.back() == "("
+			                || tokens.back() == "+" || tokens.back() == "-"
+			                || tokens.back() == "*" || tokens.back() == "/")
+			           );
+
+			while (is_digit && cur < end && std::isdigit(expr[cur], loc)) {
 				cur++;
 			}
+
+			tokens.push_back(expr.substr(beg, cur - beg));
 		}
 	}
 	return tokens;
