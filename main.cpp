@@ -8,6 +8,54 @@
 #include <string_view>
 #include <vector>
 
+std::optional<int> evaluate(std::span<const std::string_view> tokens)
+{
+	std::stack<int> stack;
+	for (std::string_view token : tokens) {
+		if (token == "+" || token == "-" || token == "*" || token == "/") {
+			if (stack.size() < 2) {
+				return std::nullopt;
+			}
+
+			int b = stack.top();
+			stack.pop();
+			int a = stack.top();
+			stack.pop();
+
+			switch (token[0]) {
+			case '+':
+				stack.push(a + b);
+				break;
+			case '-':
+				stack.push(a - b);
+				break;
+			case '*':
+				stack.push(a * b);
+				break;
+			case '/':
+				if (b == 0) {
+					return std::nullopt;
+				}
+				stack.push(a / b);
+				break;
+			}
+		} else {
+			int value;
+			const char* end = token.data() + token.size();
+			auto [ptr, ec] = std::from_chars(token.data(), end, value);
+			if (ec != std::errc() || ptr != end) {
+				return std::nullopt;
+			}
+			stack.push(value);
+		}
+	}
+
+	if (stack.size() != 1) {
+		return std::nullopt;
+	}
+	return stack.top();
+}
+
 std::optional<std::vector<std::string_view>> postfix_expr_from_infix(std::span<const std::string_view> infix_expr)
 {
 	// Use the Shunting Yard algorithm to convert an infix expression to postfix expression
@@ -53,7 +101,7 @@ std::optional<std::vector<std::string_view>> postfix_expr_from_infix(std::span<c
 	return postfix_expr;
 }
 
-std::vector<std::string_view> tokenize(std::string_view expr)
+std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
 {
 	std::vector<std::string_view> tokens;
 	const std::locale& loc = std::locale::classic();
@@ -95,6 +143,10 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 			tokens.push_back(expr.substr(beg, cur - beg));
 		}
 	}
+
+	if (tokens.empty()) {
+		return std::nullopt;
+	}
 	return tokens;
 }
 
@@ -104,60 +156,21 @@ bool evaluate(const char* expression, int& result)
 		return false;
 	}
 
-	// Transform the infix expression to a postfix expression to make the evaluation easier
-	// by removing the parentheses and having explicit operator ordering
-	std::optional<std::vector<std::string_view>> tokens = postfix_expr_from_infix(tokenize(expression));
+	std::optional<std::vector<std::string_view>> tokens = tokenize(expression);
 	if (!tokens) {
 		return false;
 	}
-	std::stack<int> stack;
-	for (std::string_view token : *tokens) {
-		if (token == "+" || token == "-" || token == "*" || token == "/") {
-			if (stack.size() < 2) {
-				return false;
-			}
-
-			int b = stack.top();
-			stack.pop();
-			int a = stack.top();
-			stack.pop();
-
-			switch (token[0]) {
-			case '+':
-				stack.push(a + b);
-				break;
-			case '-':
-				stack.push(a - b);
-				break;
-			case '*':
-				stack.push(a * b);
-				break;
-			case '/':
-				if (b == 0) {
-					return false;
-				}
-				stack.push(a / b);
-				break;
-			}
-		} else {
-			// The tokenize and postfix_expr_from_infix functions do not validate input and
-			// badly formed expression can be evaluated. At this point a number is expected
-			// and from_chars will return an error with badly formed input.
-			int value;
-			const char* end = token.data() + token.size();
-			auto [ptr, ec] = std::from_chars(token.data(), end, value);
-			if (ec != std::errc() || ptr != end) {
-				return false;
-			}
-			stack.push(value);
-		}
-	}
-
-	if (stack.size() != 1) {
+	// Transform the infix expression to a postfix expression to make the evaluation easier
+	// by removing the parentheses and having explicit operator ordering
+	std::optional<std::vector<std::string_view>> expr = postfix_expr_from_infix(*tokens);
+	if (!expr) {
 		return false;
 	}
-
-	result = stack.top();
+	std::optional<int> value = evaluate(*expr);
+	if (!value) {
+		return false;
+	}
+	result = *value;
 	return true;
 }
 
@@ -230,7 +243,14 @@ bool run_postfix_from_infix_tests()
 		{ "4+(12/(1*2))",       { "4", "12", "1", "2", "*", "/", "+" } },
 	};
 	for (const auto& [expr, expected_result] : inputs) {
-		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
+		const auto tokens = tokenize(expr);
+		if (!tokens) {
+			std::cerr << "Failed Infix to Postfix " << expr << " Cannot Tokenize\n";
+			success = false;
+			continue;
+		}
+
+		const auto result = postfix_expr_from_infix(*tokens);
 		if (!result) {
 			std::cerr << "Failed Infix to Postfix " << expr << " Invalid Expression\n";
 			success = false;
@@ -251,7 +271,14 @@ bool run_postfix_from_infix_tests()
 		"1 + (12 * 2))",
 	};
 	for (const auto& expr : bad_exprs) {
-		std::optional<std::vector<std::string_view>> result = postfix_expr_from_infix(tokenize(expr));
+		const auto tokens = tokenize(expr);
+		if (!tokens) {
+			std::cerr << "Failed Infix to Postfix Bad Expression " << expr << " Cannot Tokenize\n";
+			success = false;
+			continue;
+		}
+
+		const auto result = postfix_expr_from_infix(*tokens);
 		if (!result) {
 			std::cerr << "Passed Infix to Postfix Bad Expression " << expr << "\n";
 		} else {
@@ -276,18 +303,37 @@ bool run_tokenize_tests()
 		{ "(1 + (12 * 2)",      { "(", "1", "+", "(", "12", "*", "2", ")" } },
 	};
 	for (const auto& [expr, expected_result] : inputs) {
-		std::vector<std::string_view> result = tokenize(expr);
-		if (result == expected_result) {
+		const auto result = tokenize(expr);
+		if (!result) {
+			std::cerr << "Failed Tokenize \"" << expr << "\"\n";
+			success = false;
+		} else if (*result == expected_result) {
 			std::cerr << "Passed Tokenize " << expr << "\n";
 		} else {
 			std::cerr << "Failed Tokenize " << expr << " Actual Result: ";
-			for (const auto& x : result) {
+			for (const auto& x : *result) {
 				std::cerr << x << ", ";
 			}
 			std::cerr << "\n";
 			success = false;
 		}
 	}
+
+	std::pair<std::string, std::string> empty_strings[] = {
+		{ "",   "Empty" },
+		{ " ",  "Space" },
+		{ "\t", "Tab" },
+	};
+	for (const auto& [expr, desc] : empty_strings) {
+		const auto result = tokenize(expr);
+		if (!result) {
+			std::cerr << "Passed Tokenize Empty String (" << desc << ")\n";
+		} else {
+			std::cerr << "Failed Tokenize Empty String (" << desc << ")\n";
+			success = false;
+		}
+	}
+
 	return success;
 }
 
