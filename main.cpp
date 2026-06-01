@@ -127,17 +127,19 @@ std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
 			const std::size_t beg = cur;
 			cur++;
 
-			const bool is_digit =
-				std::isdigit(expr[beg], loc)
-			        || (expr[beg] == '-'
-			            && (beg + 1 < end) && std::isdigit(expr[beg + 1], loc)
-			            && (tokens.empty() || tokens.back() == "("
-			                || tokens.back() == "+" || tokens.back() == "-"
-			                || tokens.back() == "*" || tokens.back() == "/")
-			           );
+			const bool prev_is_operator = tokens.empty()
+				|| tokens.back() == "+" || tokens.back() == "-"
+				|| tokens.back() == "*" || tokens.back() == "/"
+				|| tokens.back() == "(";
 
-			while (is_digit && cur < end && std::isdigit(expr[cur], loc)) {
-				cur++;
+			const bool starts_number =
+				std::isdigit(expr[beg], loc)
+			        || (expr[beg] == '-' && (beg + 1 < end) && std::isdigit(expr[beg + 1], loc) && prev_is_operator);
+
+			if (starts_number) {
+				while (cur < end && std::isdigit(expr[cur], loc)) {
+					cur++;
+				}
 			}
 
 			tokens.push_back(expr.substr(beg, cur - beg));
