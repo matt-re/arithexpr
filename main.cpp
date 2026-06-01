@@ -105,6 +105,10 @@ std::vector<std::string_view> tokenize(std::string_view expr)
 
 bool evaluate(const char* expression, int& result)
 {
+	if (!expression) {
+		return false;
+	}
+
 	// Transform the infix expression to a postfix expression to make the evaluation easier
 	// by removing the parentheses and having explicit operator ordering
 	std::optional<std::vector<std::string_view>> tokens = postfix_expr_from_infix(tokenize(expression));
@@ -200,11 +204,16 @@ bool run_evaluate_tests()
 		"+ 1",
 		"1)",
 		"1(",
+		nullptr,
 	};
 	for (const auto& expr : bad_exprs) {
 		int result;
 		if (!evaluate(expr, result)) {
-			std::cerr << "Passed Evaluate Bad Expression " << expr << "\n";
+			if (expr) {
+				std::cerr << "Passed Evaluate Bad Expression " << expr << "\n";
+			} else {
+				std::cerr << "Passed Evaluate Bad Expression NULL\n";
+			}
 		} else {
 			std::cerr << "Failed Evaluate Bad Expression " << expr << "\n";
 			success = false;
