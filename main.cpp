@@ -111,9 +111,6 @@ std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
 		while (i < expr.size() && std::isspace(expr[i], loc)) {
 			i++;
 		}
-		if (i >= expr.size()) {
-			break;
-		}
 		const std::size_t start = i;
 		while (i < expr.size() && !std::isspace(expr[i], loc)) {
 			i++;
