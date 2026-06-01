@@ -56,6 +56,22 @@ std::optional<int> evaluate(std::span<const std::string_view> tokens)
 	return stack.top();
 }
 
+bool is_precedence_higher(std::string_view a, std::string_view b)
+{
+	if (a == "*" && (b == "+" || b == "-")) return true;
+	if (a == "/" && (b == "+" || b == "-")) return true;
+	return false;
+}
+
+bool is_precedence_equal(std::string_view a, std::string_view b)
+{
+	if (a == "+" && (b == "+" || b == "-")) return true;
+	if (a == "-" && (b == "+" || b == "-")) return true;
+	if (a == "*" && (b == "*" || b == "/")) return true;
+	if (a == "/" && (b == "*" || b == "/")) return true;
+	return false;
+}
+
 std::optional<std::vector<std::string_view>> postfix_from_infix(std::span<const std::string_view> tokens)
 {
 	// Use the Shunting Yard algorithm to convert an infix expression to postfix expression
@@ -76,11 +92,8 @@ std::optional<std::vector<std::string_view>> postfix_from_infix(std::span<const 
 			}
 			stack.pop();
 		} else if (token == "+" || token == "-" || token == "*" || token == "/") {
-			// For this app all operators have the same precedence, as shown in the given spec document,
-			// therefore copy all operators pushed so far to result
-			// To support operators with different precedence then only pop operators with higher, or
-			// same precedence and left associative
-			while (!stack.empty() && stack.top() != "(") {
+			while (!stack.empty() && stack.top() != "("
+			       && (is_precedence_higher(stack.top(), token) || (is_precedence_equal(stack.top(), token) /* && is left-associative*/))) {
 				result.push_back(stack.top());
 				stack.pop();
 			}
@@ -190,7 +203,12 @@ bool run_evaluate_tests()
 	bool success = true;
 
 	std::pair<const char*, int> inputs[] = {
-		{ "1 + 3 * 4",          16 },
+		{ "1 + 3 * 4",          13 },
+		{ "(1 + 3) * 4",        16 },
+		{ "3 * 4 + 1",          13 },
+		{ "100 / 4 * 3",        75 },
+		{ "100 / 5 * 5",       100 },
+		{ "100 / (5 * 5)",       4 },
 		{ "1 + 3",               4 },
 		{ "(1 + 3) * 2",         8 },
 		{ "(4 / 2) + 6",         8 },
@@ -245,7 +263,7 @@ bool run_postfix_from_infix_tests()
 {
 	bool success = true;
 	std::pair<std::vector<std::string_view>, std::vector<std::string_view>> inputs[] = {
-		{ { "1", "+", "3", "*", "4" },                                { "1", "3", "+", "4", "*" } },
+		{ { "1", "+", "3", "*", "4" },                                { "1", "3", "4", "*", "+" } },
 		{ { "1", "+", "3" },                                          { "1", "3", "+" } },
 		{ { "(", "1", "+", "3", ")", "*", "2" },                      { "1", "3", "+", "2", "*" } },
 		{ { "(", "4", "/", "2", ")", "+", "6" },                      { "4", "2", "/", "6", "+" } },
@@ -324,12 +342,65 @@ bool run_tokenize_tests()
 	return success;
 }
 
+bool run_precedence_tests()
+{
+	bool success = true;
+
+	success &= is_precedence_higher("+", "+") == false;
+	success &= is_precedence_higher("+", "-") == false;
+	success &= is_precedence_higher("+", "*") == false;
+	success &= is_precedence_higher("+", "/") == false;
+
+	success &= is_precedence_higher("-", "+") == false;
+	success &= is_precedence_higher("-", "-") == false;
+	success &= is_precedence_higher("-", "*") == false;
+	success &= is_precedence_higher("-", "/") == false;
+
+	success &= is_precedence_higher("*", "+") == true;
+	success &= is_precedence_higher("*", "-") == true;
+	success &= is_precedence_higher("*", "*") == false;
+	success &= is_precedence_higher("*", "/") == false;
+
+	success &= is_precedence_higher("/", "+") == true;
+	success &= is_precedence_higher("/", "-") == true;
+	success &= is_precedence_higher("/", "*") == false;
+	success &= is_precedence_higher("/", "/") == false;
+
+	success &= is_precedence_equal("+", "+") == true;
+	success &= is_precedence_equal("+", "-") == true;
+	success &= is_precedence_equal("+", "*") == false;
+	success &= is_precedence_equal("+", "/") == false;
+
+	success &= is_precedence_equal("-", "+") == true;
+	success &= is_precedence_equal("-", "-") == true;
+	success &= is_precedence_equal("-", "*") == false;
+	success &= is_precedence_equal("-", "/") == false;
+
+	success &= is_precedence_equal("*", "+") == false;
+	success &= is_precedence_equal("*", "-") == false;
+	success &= is_precedence_equal("*", "*") == true;
+	success &= is_precedence_equal("*", "/") == true;
+
+	success &= is_precedence_equal("/", "+") == false;
+	success &= is_precedence_equal("/", "-") == false;
+	success &= is_precedence_equal("/", "*") == true;
+	success &= is_precedence_equal("/", "/") == true;
+
+	if (success) {
+		std::cerr << "Passed Precedence\n";
+	} else {
+		std::cerr << "Failed Precedence\n";
+	}
+	return success;
+}
+
 bool run_tests()
 {
 	bool success = true;
 	success &= run_tokenize_tests();
 	success &= run_postfix_from_infix_tests();
 	success &= run_evaluate_tests();
+	success &= run_precedence_tests();
 	return success;
 }
 
