@@ -191,15 +191,14 @@ bool run_evaluate_tests()
 	};
 	for (const auto& [expr, expected_result] : inputs) {
 		int result;
-		bool b = evaluate(expr, result);
-		if (b && result == expected_result) {
+		bool evaluated = evaluate(expr, result);
+		if (evaluated && result == expected_result) {
 			std::cerr << "Passed Evaluate " << expr << "\n";
+		} else if (evaluated) {
+			std::cerr << "Failed Evaluate " << expr << " Actual Result: " << result << "\n";
+			success = false;
 		} else {
-			if (!b) {
-				std::cerr << "Failed Evaluate " << expr << " invalid expression\n";
-			} else {
-				std::cerr << "Failed Evaluate " << expr << " Actual Result: " << result << "\n";
-			}
+			std::cerr << "Failed Evaluate " << expr << " invalid expression\n";
 			success = false;
 		}
 	}
