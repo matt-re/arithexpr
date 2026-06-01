@@ -129,11 +129,11 @@ std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
 				|| tokens.back() == "*" || tokens.back() == "/"
 				|| tokens.back() == "(";
 
-			const bool starts_number =
+			const bool is_number =
 				std::isdigit(expr[beg], loc)
 			        || (expr[beg] == '-' && (beg + 1 < end) && std::isdigit(expr[beg + 1], loc) && prev_is_operator);
 
-			if (starts_number) {
+			if (is_number) {
 				while (cur < end && std::isdigit(expr[cur], loc)) {
 					cur++;
 				}
