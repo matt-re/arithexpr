@@ -56,18 +56,18 @@ std::optional<int> evaluate(std::span<const std::string_view> tokens)
 	return stack.top();
 }
 
-std::optional<std::vector<std::string_view>> postfix_expr_from_infix(std::span<const std::string_view> infix_expr)
+std::optional<std::vector<std::string_view>> postfix_from_infix(std::span<const std::string_view> tokens)
 {
 	// Use the Shunting Yard algorithm to convert an infix expression to postfix expression
-	std::vector<std::string_view> postfix_expr;
+	std::vector<std::string_view> result;
 	std::stack<std::string_view> stack;
-	for (std::string_view token : infix_expr) {
+	for (std::string_view token : tokens) {
 		if (token == "(") {
 			stack.push(token);
 		} else if (token == ")") {
 			// On closing parenthesis copy all operators to result
 			while (!stack.empty() && stack.top() != "(") {
-				postfix_expr.push_back(stack.top());
+				result.push_back(stack.top());
 				stack.pop();
 			}
 			// Remove the opening parenthesis
@@ -81,13 +81,13 @@ std::optional<std::vector<std::string_view>> postfix_expr_from_infix(std::span<c
 			// To support operators with different precedence then only pop operators with higher, or
 			// same precedence and left associative
 			while (!stack.empty() && stack.top() != "(") {
-				postfix_expr.push_back(stack.top());
+				result.push_back(stack.top());
 				stack.pop();
 			}
 			stack.push(token);
 		} else {
 			// Copy number straight to result
-			postfix_expr.push_back(token);
+			result.push_back(token);
 		}
 	}
 	// Any remaining operators copy to result
@@ -95,10 +95,10 @@ std::optional<std::vector<std::string_view>> postfix_expr_from_infix(std::span<c
 		if (stack.top() == "(") {
 			return std::nullopt;
 		}
-		postfix_expr.push_back(stack.top());
+		result.push_back(stack.top());
 		stack.pop();
 	}
-	return postfix_expr;
+	return result;
 }
 
 std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
@@ -161,11 +161,11 @@ bool evaluate(const char* expression, int& result)
 	}
 	// Transform the infix expression to a postfix expression to make the evaluation easier
 	// by removing the parentheses and having explicit operator ordering
-	std::optional<std::vector<std::string_view>> expr = postfix_expr_from_infix(*tokens);
-	if (!expr) {
+	std::optional<std::vector<std::string_view>> postfix_tokens = postfix_from_infix(*tokens);
+	if (!postfix_tokens) {
 		return false;
 	}
-	std::optional<int> value = evaluate(*expr);
+	std::optional<int> value = evaluate(*postfix_tokens);
 	if (!value) {
 		return false;
 	}
@@ -248,7 +248,7 @@ bool run_postfix_from_infix_tests()
 			continue;
 		}
 
-		const auto result = postfix_expr_from_infix(*tokens);
+		const auto result = postfix_from_infix(*tokens);
 		if (!result) {
 			std::cerr << "Failed Infix to Postfix " << expr << " Invalid Expression\n";
 			success = false;
@@ -276,7 +276,7 @@ bool run_postfix_from_infix_tests()
 			continue;
 		}
 
-		const auto result = postfix_expr_from_infix(*tokens);
+		const auto result = postfix_from_infix(*tokens);
 		if (!result) {
 			std::cerr << "Passed Infix to Postfix Bad Expression " << expr << "\n";
 		} else {
