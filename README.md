@@ -1,4 +1,4 @@
-Provides a C++ function to evaluate a simple arithmetric expression.
+Provides a C++ function to evaluate a simple arithmetic expression.
 Supports addition, subtraction, multiplication and division of integer numbers only and returns an integer result.
 Expressions are parsed left to right and all operators have the same precedence, also known as chain calculation mode.
 
