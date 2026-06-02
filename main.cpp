@@ -173,6 +173,18 @@ bool evaluate(const char* expression, int& result)
 	return true;
 }
 
+std::string tokens_to_string(const std::vector<std::string_view>& value)
+{
+	std::string s;
+	for (const auto& v : value) {
+		if (!s.empty()) {
+			s += ' ';
+		}
+		s += v;
+	}
+	return s;
+}
+
 bool run_evaluate_tests()
 {
 	bool success = true;
@@ -232,55 +244,36 @@ bool run_evaluate_tests()
 bool run_postfix_from_infix_tests()
 {
 	bool success = true;
-	std::pair<std::string, std::vector<std::string_view>> inputs[] = {
-		{ "1 + 3 * 4",          { "1", "3", "+", "4", "*" } },
-		{ "1 + 3",              { "1", "3", "+" } },
-		{ "(1 + 3) * 2",        { "1", "3", "+", "2", "*" } },
-		{ "(4 / 2) + 6",        { "4", "2", "/", "6", "+" } },
-		{ "4 + (12 / (1 * 2))", { "4", "12", "1", "2", "*", "/", "+" } },
-		{ "4+(12/(1*2))",       { "4", "12", "1", "2", "*", "/", "+" } },
+	std::pair<std::vector<std::string_view>, std::vector<std::string_view>> inputs[] = {
+		{ { "1", "+", "3", "*", "4" },                                { "1", "3", "+", "4", "*" } },
+		{ { "1", "+", "3" },                                          { "1", "3", "+" } },
+		{ { "(", "1", "+", "3", ")", "*", "2" },                      { "1", "3", "+", "2", "*" } },
+		{ { "(", "4", "/", "2", ")", "+", "6" },                      { "4", "2", "/", "6", "+" } },
+		{ { "4", "+", "(", "12", "/", "(", "1", "*", "2", ")", ")" }, { "4", "12", "1", "2", "*", "/", "+" } },
 	};
-	for (const auto& [expr, expected_result] : inputs) {
-		const auto tokens = tokenize(expr);
-		if (!tokens) {
-			std::cerr << "Failed Infix to Postfix " << expr << " Cannot Tokenize\n";
-			success = false;
-			continue;
-		}
-
-		const auto result = postfix_from_infix(*tokens);
+	for (const auto& [tokens, expected_result] : inputs) {
+		const auto result = postfix_from_infix(tokens);
 		if (!result) {
-			std::cerr << "Failed Infix to Postfix " << expr << " Invalid Expression\n";
+			std::cerr << "Failed Infix to Postfix " << tokens_to_string(tokens) << " Invalid Expression\n";
 			success = false;
 		} else if (*result == expected_result) {
-			std::cerr << "Passed Infix to Postfix " << expr << "\n";
+			std::cerr << "Passed Infix to Postfix " << tokens_to_string(tokens) << "\n";
 		} else {
-			std::cerr << "Failed Infix to Postfix " << expr << " Actual Result: ";
-			for (const auto& x : *result) {
-				std::cerr << x << ", ";
-			}
-			std::cerr << "\n";
+			std::cerr << "Failed Infix to Postfix " << tokens_to_string(tokens) << " Actual Result: " << tokens_to_string(*result) << "\n";
 			success = false;
 		}
 	}
 
-	std::string bad_exprs[] = {
-		"(1 + (12 * 2)",
-		"1 + (12 * 2))",
+	std::vector<std::string_view> invalid_tokens[] = {
+		{ "(", "1", "+", "(", "12", "*", "2", ")" },
+		{ "1", "+", "(", "12", "*", "2", ")", ")" },
 	};
-	for (const auto& expr : bad_exprs) {
-		const auto tokens = tokenize(expr);
-		if (!tokens) {
-			std::cerr << "Failed Infix to Postfix Bad Expression " << expr << " Cannot Tokenize\n";
-			success = false;
-			continue;
-		}
-
-		const auto result = postfix_from_infix(*tokens);
+	for (const auto& tokens : invalid_tokens) {
+		const auto result = postfix_from_infix(tokens);
 		if (!result) {
-			std::cerr << "Passed Infix to Postfix Bad Expression " << expr << "\n";
+			std::cerr << "Passed Infix to Postfix Bad Expression " << tokens_to_string(tokens) << "\n";
 		} else {
-			std::cerr << "Failed Infix to Postfix Bad Expression " << expr << "\n";
+			std::cerr << "Failed Infix to Postfix Bad Expression " << tokens_to_string(tokens) << "\n";
 			success = false;
 		}
 	}
@@ -303,16 +296,12 @@ bool run_tokenize_tests()
 	for (const auto& [expr, expected_result] : inputs) {
 		const auto result = tokenize(expr);
 		if (!result) {
-			std::cerr << "Failed Tokenize \"" << expr << "\"\n";
+			std::cerr << "Failed Tokenize " << expr << "\n";
 			success = false;
 		} else if (*result == expected_result) {
 			std::cerr << "Passed Tokenize " << expr << "\n";
 		} else {
-			std::cerr << "Failed Tokenize " << expr << " Actual Result: ";
-			for (const auto& x : *result) {
-				std::cerr << x << ", ";
-			}
-			std::cerr << "\n";
+			std::cerr << "Failed Tokenize " << expr << " Actual Result: " << tokens_to_string(*result) << "\n";
 			success = false;
 		}
 	}
