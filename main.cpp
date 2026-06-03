@@ -1,6 +1,7 @@
 #include <charconv>
-#include <locale>
 #include <iostream>
+#include <limits>
+#include <locale>
 #include <optional>
 #include <span>
 #include <stack>
@@ -22,18 +23,57 @@ std::optional<int> evaluate(std::span<const std::string_view> tokens)
 			int a = stack.top();
 			stack.pop();
 
+			// Overflow checks doc
+			// https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/integers-int/int32-c
+
 			switch (token[0]) {
 			case '+':
+				if (b > 0 && (a > std::numeric_limits<int>::max() - b)) {
+					return std::nullopt;
+				}
+				if (b < 0 && (a < std::numeric_limits<int>::min() - b)) {
+					return std::nullopt;
+				}
 				stack.push(a + b);
 				break;
 			case '-':
+				if (b > 0 && (a < std::numeric_limits<int>::min() + b)) {
+					return std::nullopt;
+				}
+				if (b < 0 && (a > std::numeric_limits<int>::max() + b)) {
+					return std::nullopt;
+				}
 				stack.push(a - b);
 				break;
 			case '*':
+				if (a > 0) {
+					if (b > 0) {
+						if (a > std::numeric_limits<int>::max() / b) {
+							return std::nullopt;
+						}
+					} else {
+						if (b < std::numeric_limits<int>::min() / a) {
+							return std::nullopt;
+						}
+					}
+				} else {
+					if (b > 0) {
+						if (a < std::numeric_limits<int>::min() / b) {
+							return std::nullopt;
+						}
+					} else {
+						if (a != 0 && b < std::numeric_limits<int>::max() / a) {
+							return std::nullopt;
+						}
+					}
+				}
 				stack.push(a * b);
 				break;
 			case '/':
 				if (b == 0) {
+					return std::nullopt;
+				}
+				if (a == std::numeric_limits<int>::min() && b == -1) {
 					return std::nullopt;
 				}
 				stack.push(a / b);
@@ -200,6 +240,13 @@ bool run_evaluate_tests()
 		{ "-1 * 2",             -2 },
 		{ "-1+2",                1 },
 		{ "1--2",                3 },
+		{ "2147483646 + 1",      std::numeric_limits<int>::max() },
+		{ "-2147483647 + -1",    std::numeric_limits<int>::min() },
+		{ "0 * 0",               0 },
+		{ "46340 * 46341",       2147441940 }, // sqrt(INT_MAX) = 46340.9
+		{ "-46340 * -46341",     2147441940 },
+		{ "-1073741824 * 2",     std::numeric_limits<int>::min() },
+		{ "1073741824 * -2",     std::numeric_limits<int>::min() },
 	};
 	for (const auto& [expr, expected_result] : inputs) {
 		int result;
@@ -324,12 +371,41 @@ bool run_tokenize_tests()
 	return success;
 }
 
+bool run_overflow_tests()
+{
+	bool success = true;
+	const char* inputs[] = {
+		" 2147483648",		// max constant, from_chars fails
+		"-2147483649", 		// min constant, from_chars fails
+		" 2147483647 +  1",	// add overflow
+		"-2147483648 + -1",	// add underflow
+		" 2147483647 - -1",	// sub overflow
+		"-2147483648 -  1",	// sub underflow
+		" 2147483647 *  2",	// mul +ve * +ve > INT_MAX
+		"-2147483648 *  2",	// mul -ve * +ve < INT_MIN
+		" 2147483647 * -2",	// mul +ve * -ve < INT_MIN
+		"-2147483648 * -1",	// mul -ve * -ve > INT_MAX
+		"-2147483648 / -1",	// div overflow
+	};
+	for (const auto& expr : inputs) {
+		int result;
+		if (!evaluate(expr, result)) {
+			std::cerr << "Passed Evaluate Overflow Expression " << expr << "\n";
+		} else {
+			std::cerr << "Failed Evaluate Overflow Expression " << expr << "\n";
+			success = false;
+		}
+	}
+	return success;
+}
+
 bool run_tests()
 {
 	bool success = true;
 	success &= run_tokenize_tests();
 	success &= run_postfix_from_infix_tests();
 	success &= run_evaluate_tests();
+	success &= run_overflow_tests();
 	return success;
 }
 
