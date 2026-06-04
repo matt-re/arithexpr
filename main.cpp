@@ -15,30 +15,31 @@
 
 bool checked_add(int& result, int a, int b)
 {
+	result = static_cast<int>(static_cast<unsigned int>(a) + static_cast<unsigned int>(b));
 	if (b > 0 && (a > std::numeric_limits<int>::max() - b)) {
 		return true;
 	}
 	if (b < 0 && (a < std::numeric_limits<int>::min() - b)) {
 		return true;
 	}
-	result = a + b;
 	return false;
 }
 
 bool checked_sub(int& result, int a, int b)
 {
+	result = static_cast<int>(static_cast<unsigned int>(a) - static_cast<unsigned int>(b));
 	if (b > 0 && (a < std::numeric_limits<int>::min() + b)) {
 		return true;
 	}
 	if (b < 0 && (a > std::numeric_limits<int>::max() + b)) {
 		return true;
 	}
-	result = a - b;
 	return false;
 }
 
 bool checked_mul(int& result, int a, int b)
 {
+	result = static_cast<int>(static_cast<unsigned int>(a) * static_cast<unsigned int>(b));
 	if (a > 0) {
 		if (b > 0) {
 			if (a > std::numeric_limits<int>::max() / b) {
@@ -60,16 +61,17 @@ bool checked_mul(int& result, int a, int b)
 			}
 		}
 	}
-	result = a * b;
 	return false;
 }
 
 bool checked_div(int& result, int a, int b)
 {
 	if (b == 0) {
+		result = 0;
 		return true;
 	}
 	if (a == std::numeric_limits<int>::min() && b == -1) {
+		result = std::numeric_limits<int>::min();
 		return true;
 	}
 	result = a / b;
@@ -434,69 +436,89 @@ bool run_overflow_tests()
 
 bool run_checked_tests()
 {
-	bool success = true;
-	int unused;
+	// An unlikely value the checked_* functions would not write to the result
+	constexpr int kUnwritten = 0xDEADBEEF;
 
-	if (checked_add(unused, 2147483647, 1)) {
+	bool success = true;
+	int result;
+
+	result = kUnwritten;
+	if (checked_add(result, 2147483647, 1) && result == std::numeric_limits<int>::min()) {
 		std::cerr << "Passed Add Overflow\n";
 	} else {
 		std::cerr << "Failed Add Overflow\n";
 		success = false;
 	}
 
-	if (checked_add(unused, -2147483648, -1)) {
+	result = kUnwritten;
+	if (checked_add(result, -2147483648, -1) && result == std::numeric_limits<int>::max()) {
 		std::cerr << "Passed Add Underflow\n";
 	} else {
 		std::cerr << "Failed Add Underflow\n";
 		success = false;
 	}
 
-	if (checked_sub(unused, 2147483647, -1)) {
+	result = kUnwritten;
+	if (checked_sub(result, 2147483647, -1) && result == std::numeric_limits<int>::min()) {
 		std::cerr << "Passed Sub Overflow\n";
 	} else {
 		std::cerr << "Failed Sub Overflow\n";
 		success = false;
 	}
 
-	if (checked_sub(unused, -2147483648, 1)) {
+	result = kUnwritten;
+	if (checked_sub(result, -2147483648, 1) && result == std::numeric_limits<int>::max()) {
 		std::cerr << "Passed Sub Underflow\n";
 	} else {
 		std::cerr << "Failed Sub Underflow\n";
 		success = false;
 	}
 
-	if (checked_mul(unused, 2147483647, 2)) {
+	result = kUnwritten;
+	if (checked_mul(result, 2147483647, 2) && result == -2) {
 		std::cerr << "Passed Mul +ve and +ve Overflow\n";
 	} else {
 		std::cerr << "Failed Mul +ve and +ve Overflow\n";
 		success = false;
 	}
 
-	if (checked_mul(unused, -2147483648, 2)) {
+	result = kUnwritten;
+	if (checked_mul(result, -2147483648, 2) && result == 0) {
 		std::cerr << "Passed Mul -ve and +ve Underflow\n";
 	} else {
 		std::cerr << "Failed Mul -ve and +ve Underflow\n";
 		success = false;
 	}
 
-	if (checked_mul(unused, 2147483647, -2)) {
+	result = kUnwritten;
+	if (checked_mul(result, 2147483647, -2) && result == 2) {
 		std::cerr << "Passed Mul +ve and -ve Underflow\n";
 	} else {
 		std::cerr << "Failed Mul +ve and -ve Underflow\n";
 		success = false;
 	}
 
-	if (checked_mul(unused, -2147483648, -1)) {
+	result = kUnwritten;
+	if (checked_mul(result, -2147483648, -1) && result == std::numeric_limits<int>::min()) {
 		std::cerr << "Passed Mul -ve and -ve Overflow\n";
 	} else {
 		std::cerr << "Failed Mul -ve and -ve Overflow\n";
 		success = false;
 	}
 
-	if (checked_div(unused, -2147483648, -1)) {
+	result = kUnwritten;
+	if (checked_div(result, -2147483648, -1) && result == std::numeric_limits<int>::min()) {
 		std::cerr << "Passed Div Overflow\n";
 	} else {
 		std::cerr << "Failed Div Overflow\n";
+		success = false;
+	}
+
+	result = kUnwritten;
+	if (checked_div(result, 1, 0) && result == 0) {
+		std::cerr << "Passed Div by zero\n";
+	} else {
+		std::cerr << "Failed Div by zero\n";
 		success = false;
 	}
 
