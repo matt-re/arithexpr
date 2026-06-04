@@ -9,6 +9,73 @@
 #include <string_view>
 #include <vector>
 
+// Replace with chk_add and co. in C++ 26  https://en.cppreference.com/cpp/header/stdckdint.h
+// Current implementation uses
+// https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/integers-int/int32-c
+
+bool checked_add(int& result, int a, int b)
+{
+	if (b > 0 && (a > std::numeric_limits<int>::max() - b)) {
+		return true;
+	}
+	if (b < 0 && (a < std::numeric_limits<int>::min() - b)) {
+		return true;
+	}
+	result = a + b;
+	return false;
+}
+
+bool checked_sub(int& result, int a, int b)
+{
+	if (b > 0 && (a < std::numeric_limits<int>::min() + b)) {
+		return true;
+	}
+	if (b < 0 && (a > std::numeric_limits<int>::max() + b)) {
+		return true;
+	}
+	result = a - b;
+	return false;
+}
+
+bool checked_mul(int& result, int a, int b)
+{
+	if (a > 0) {
+		if (b > 0) {
+			if (a > std::numeric_limits<int>::max() / b) {
+				return true;
+			}
+		} else {
+			if (b < std::numeric_limits<int>::min() / a) {
+				return true;
+			}
+		}
+	} else {
+		if (b > 0) {
+			if (a < std::numeric_limits<int>::min() / b) {
+				return true;
+			}
+		} else {
+			if (a != 0 && b < std::numeric_limits<int>::max() / a) {
+				return true;
+			}
+		}
+	}
+	result = a * b;
+	return false;
+}
+
+bool checked_div(int& result, int a, int b)
+{
+	if (b == 0) {
+		return true;
+	}
+	if (a == std::numeric_limits<int>::min() && b == -1) {
+		return true;
+	}
+	result = a / b;
+	return false;
+}
+
 std::optional<int> evaluate(std::span<const std::string_view> tokens)
 {
 	std::stack<int> stack;
@@ -23,62 +90,28 @@ std::optional<int> evaluate(std::span<const std::string_view> tokens)
 			int a = stack.top();
 			stack.pop();
 
-			// Overflow checks doc
-			// https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/integers-int/int32-c
+			int result;
+			bool overflow = true;
 
 			switch (token[0]) {
 			case '+':
-				if (b > 0 && (a > std::numeric_limits<int>::max() - b)) {
-					return std::nullopt;
-				}
-				if (b < 0 && (a < std::numeric_limits<int>::min() - b)) {
-					return std::nullopt;
-				}
-				stack.push(a + b);
+				overflow = checked_add(result, a, b);
 				break;
 			case '-':
-				if (b > 0 && (a < std::numeric_limits<int>::min() + b)) {
-					return std::nullopt;
-				}
-				if (b < 0 && (a > std::numeric_limits<int>::max() + b)) {
-					return std::nullopt;
-				}
-				stack.push(a - b);
+				overflow = checked_sub(result, a, b);
 				break;
 			case '*':
-				if (a > 0) {
-					if (b > 0) {
-						if (a > std::numeric_limits<int>::max() / b) {
-							return std::nullopt;
-						}
-					} else {
-						if (b < std::numeric_limits<int>::min() / a) {
-							return std::nullopt;
-						}
-					}
-				} else {
-					if (b > 0) {
-						if (a < std::numeric_limits<int>::min() / b) {
-							return std::nullopt;
-						}
-					} else {
-						if (a != 0 && b < std::numeric_limits<int>::max() / a) {
-							return std::nullopt;
-						}
-					}
-				}
-				stack.push(a * b);
+				overflow = checked_mul(result, a, b);
 				break;
 			case '/':
-				if (b == 0) {
-					return std::nullopt;
-				}
-				if (a == std::numeric_limits<int>::min() && b == -1) {
-					return std::nullopt;
-				}
-				stack.push(a / b);
+				overflow = checked_div(result, a, b);
 				break;
 			}
+
+			if (overflow) {
+				return std::nullopt;
+			}
+			stack.push(result);
 		} else {
 			int value;
 			const char* end = token.data() + token.size();
@@ -399,6 +432,77 @@ bool run_overflow_tests()
 	return success;
 }
 
+bool run_checked_tests()
+{
+	bool success = true;
+	int unused;
+
+	if (checked_add(unused, 2147483647, 1)) {
+		std::cerr << "Passed Add Overflow\n";
+	} else {
+		std::cerr << "Failed Add Overflow\n";
+		success = false;
+	}
+
+	if (checked_add(unused, -2147483648, -1)) {
+		std::cerr << "Passed Add Underflow\n";
+	} else {
+		std::cerr << "Failed Add Underflow\n";
+		success = false;
+	}
+
+	if (checked_sub(unused, 2147483647, -1)) {
+		std::cerr << "Passed Sub Overflow\n";
+	} else {
+		std::cerr << "Failed Sub Overflow\n";
+		success = false;
+	}
+
+	if (checked_sub(unused, -2147483648, 1)) {
+		std::cerr << "Passed Sub Underflow\n";
+	} else {
+		std::cerr << "Failed Sub Underflow\n";
+		success = false;
+	}
+
+	if (checked_mul(unused, 2147483647, 2)) {
+		std::cerr << "Passed Mul +ve and +ve Overflow\n";
+	} else {
+		std::cerr << "Failed Mul +ve and +ve Overflow\n";
+		success = false;
+	}
+
+	if (checked_mul(unused, -2147483648, 2)) {
+		std::cerr << "Passed Mul -ve and +ve Underflow\n";
+	} else {
+		std::cerr << "Failed Mul -ve and +ve Underflow\n";
+		success = false;
+	}
+
+	if (checked_mul(unused, 2147483647, -2)) {
+		std::cerr << "Passed Mul +ve and -ve Underflow\n";
+	} else {
+		std::cerr << "Failed Mul +ve and -ve Underflow\n";
+		success = false;
+	}
+
+	if (checked_mul(unused, -2147483648, -1)) {
+		std::cerr << "Passed Mul -ve and -ve Overflow\n";
+	} else {
+		std::cerr << "Failed Mul -ve and -ve Overflow\n";
+		success = false;
+	}
+
+	if (checked_div(unused, -2147483648, -1)) {
+		std::cerr << "Passed Div Overflow\n";
+	} else {
+		std::cerr << "Failed Div Overflow\n";
+		success = false;
+	}
+
+	return success;
+}
+
 bool run_tests()
 {
 	bool success = true;
@@ -406,6 +510,7 @@ bool run_tests()
 	success &= run_postfix_from_infix_tests();
 	success &= run_evaluate_tests();
 	success &= run_overflow_tests();
+	success &= run_checked_tests();
 	return success;
 }
 
