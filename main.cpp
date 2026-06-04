@@ -501,6 +501,30 @@ bool run_checked_tests()
 		success = false;
 	}
 
+	result = kUnwritten;
+	if (!checked_mul(result, 46340, 46340) && result == 2147395600) {
+		std::cerr << "Passed 46340 * 46340\n";
+	} else {
+		std::cerr << "Failed 46340 * 46340\n";
+		success = false;
+	}
+
+	result = kUnwritten;
+	if (!checked_mul(result, 0x7FFFFFFF, 0) && result == 0) {
+		std::cerr << "Passed 0x7FFFFFFF * 0\n";
+	} else {
+		std::cerr << "Failed 0x7FFFFFFF * 0\n";
+		success = false;
+	}
+
+	result = kUnwritten;
+	if (!checked_mul(result, 0x3FFFFFFF, 2) && result == std::numeric_limits<int>::max()-1) {
+		std::cerr << "Passed 0x3FFFFFFF * 2\n";
+	} else {
+		std::cerr << "Failed 0x3FFFFFFF * 2\n";
+		success = false;
+	}
+
 	return success;
 }
 
