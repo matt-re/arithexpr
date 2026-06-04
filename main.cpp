@@ -16,10 +16,8 @@
 bool checked_add(int& result, int a, int b)
 {
 	result = static_cast<int>(static_cast<unsigned int>(a) + static_cast<unsigned int>(b));
-	if (b > 0 && (a > std::numeric_limits<int>::max() - b)) {
-		return true;
-	}
-	if (b < 0 && (a < std::numeric_limits<int>::min() - b)) {
+	if ((b > 0 && (a > std::numeric_limits<int>::max() - b)) ||
+	    (b < 0 && (a < std::numeric_limits<int>::min() - b))) {
 		return true;
 	}
 	return false;
@@ -28,10 +26,8 @@ bool checked_add(int& result, int a, int b)
 bool checked_sub(int& result, int a, int b)
 {
 	result = static_cast<int>(static_cast<unsigned int>(a) - static_cast<unsigned int>(b));
-	if (b > 0 && (a < std::numeric_limits<int>::min() + b)) {
-		return true;
-	}
-	if (b < 0 && (a > std::numeric_limits<int>::max() + b)) {
+	if ((b > 0 && (a < std::numeric_limits<int>::min() + b)) ||
+	    (b < 0 && (a > std::numeric_limits<int>::max() + b))) {
 		return true;
 	}
 	return false;
@@ -40,27 +36,10 @@ bool checked_sub(int& result, int a, int b)
 bool checked_mul(int& result, int a, int b)
 {
 	result = static_cast<int>(static_cast<unsigned int>(a) * static_cast<unsigned int>(b));
-	if (a > 0) {
-		if (b > 0) {
-			if (a > std::numeric_limits<int>::max() / b) {
-				return true;
-			}
-		} else {
-			if (b < std::numeric_limits<int>::min() / a) {
-				return true;
-			}
-		}
-	} else {
-		if (b > 0) {
-			if (a < std::numeric_limits<int>::min() / b) {
-				return true;
-			}
-		} else {
-			if (a != 0 && b < std::numeric_limits<int>::max() / a) {
-				return true;
-			}
-		}
-	}
+	if (a > 0 && b > 0 && (a > std::numeric_limits<int>::max() / b)) return true;
+	if (a > 0 && b < 0 && (b < std::numeric_limits<int>::min() / a)) return true;
+	if (a < 0 && b > 0 && (a < std::numeric_limits<int>::min() / b)) return true;
+	if (a < 0 && b < 0 && (b < std::numeric_limits<int>::max() / a)) return true;
 	return false;
 }
 
