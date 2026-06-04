@@ -415,116 +415,43 @@ bool run_overflow_tests()
 
 bool run_checked_tests()
 {
-	// An unlikely value the checked_* functions would not write to the result
+	struct CheckedTestCase
+	{
+		const char* name;
+		bool (*fn)(int&, int, int);
+		int a;
+		int b;
+		bool overflow;
+		int result;
+	};
+
+	const CheckedTestCase cases[] = {
+		{ "Add Overflow",          checked_add,    2147483647,  1, true,  std::numeric_limits<int>::min() },
+		{ "Add Underflow",         checked_add, -2147483647-1, -1, true,  std::numeric_limits<int>::max() },
+		{ "Sub Overflow",          checked_sub,    2147483647, -1, true,  std::numeric_limits<int>::min() },
+		{ "Sub Underflow",         checked_sub, -2147483647-1,  1, true,  std::numeric_limits<int>::max() },
+		{ "Mul +ve +ve Overflow",  checked_mul,    2147483647,  2, true, -2 },
+		{ "Mul -ve +ve Underflow", checked_mul, -2147483647-1,  2, true,  0 },
+		{ "Mul +ve -ve Underflow", checked_mul,    2147483647, -2, true,  2 },
+		{ "Mul -ve -ve Overflow",  checked_mul, -2147483647-1, -1, true,  std::numeric_limits<int>::min() },
+		{ "Div Overflow",          checked_div, -2147483647-1, -1, true,  std::numeric_limits<int>::min() },
+		{ "Div by zero",           checked_div,             1,  0, true,  0 },
+		{ "Mul 2147483647 * 0",    checked_mul,    2147483647,  0, false, 0 },
+		{ "Mul 1073741823 * 2",    checked_mul,    1073741823,  2, false, std::numeric_limits<int>::max()-1 },
+		{ "Mul 46340 * 46340",     checked_mul,         46340, 46340, false, 2147395600 },
+	};
+
 	constexpr int kUnwritten = 0xDEADBEEF;
-
 	bool success = true;
-	int result;
-
-	result = kUnwritten;
-	if (checked_add(result, 2147483647, 1) && result == std::numeric_limits<int>::min()) {
-		std::cerr << "Passed Add Overflow\n";
-	} else {
-		std::cerr << "Failed Add Overflow\n";
-		success = false;
+	for (const auto& c : cases) {
+		int result = kUnwritten;
+		if (c.fn(result, c.a, c.b) == c.overflow && result == c.result) {
+			std::cerr << "Passed " << c.name << "\n";
+		} else {
+			std::cerr << "Failed " << c.name << "\n";
+			success = false;
+		}
 	}
-
-	result = kUnwritten;
-	if (checked_add(result, -2147483648, -1) && result == std::numeric_limits<int>::max()) {
-		std::cerr << "Passed Add Underflow\n";
-	} else {
-		std::cerr << "Failed Add Underflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_sub(result, 2147483647, -1) && result == std::numeric_limits<int>::min()) {
-		std::cerr << "Passed Sub Overflow\n";
-	} else {
-		std::cerr << "Failed Sub Overflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_sub(result, -2147483648, 1) && result == std::numeric_limits<int>::max()) {
-		std::cerr << "Passed Sub Underflow\n";
-	} else {
-		std::cerr << "Failed Sub Underflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_mul(result, 2147483647, 2) && result == -2) {
-		std::cerr << "Passed Mul +ve and +ve Overflow\n";
-	} else {
-		std::cerr << "Failed Mul +ve and +ve Overflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_mul(result, -2147483648, 2) && result == 0) {
-		std::cerr << "Passed Mul -ve and +ve Underflow\n";
-	} else {
-		std::cerr << "Failed Mul -ve and +ve Underflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_mul(result, 2147483647, -2) && result == 2) {
-		std::cerr << "Passed Mul +ve and -ve Underflow\n";
-	} else {
-		std::cerr << "Failed Mul +ve and -ve Underflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_mul(result, -2147483648, -1) && result == std::numeric_limits<int>::min()) {
-		std::cerr << "Passed Mul -ve and -ve Overflow\n";
-	} else {
-		std::cerr << "Failed Mul -ve and -ve Overflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_div(result, -2147483648, -1) && result == std::numeric_limits<int>::min()) {
-		std::cerr << "Passed Div Overflow\n";
-	} else {
-		std::cerr << "Failed Div Overflow\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (checked_div(result, 1, 0) && result == 0) {
-		std::cerr << "Passed Div by zero\n";
-	} else {
-		std::cerr << "Failed Div by zero\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (!checked_mul(result, 46340, 46340) && result == 2147395600) {
-		std::cerr << "Passed 46340 * 46340\n";
-	} else {
-		std::cerr << "Failed 46340 * 46340\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (!checked_mul(result, 0x7FFFFFFF, 0) && result == 0) {
-		std::cerr << "Passed 0x7FFFFFFF * 0\n";
-	} else {
-		std::cerr << "Failed 0x7FFFFFFF * 0\n";
-		success = false;
-	}
-
-	result = kUnwritten;
-	if (!checked_mul(result, 0x3FFFFFFF, 2) && result == std::numeric_limits<int>::max()-1) {
-		std::cerr << "Passed 0x3FFFFFFF * 2\n";
-	} else {
-		std::cerr << "Failed 0x3FFFFFFF * 2\n";
-		success = false;
-	}
-
 	return success;
 }
 
