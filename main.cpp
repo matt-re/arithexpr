@@ -175,17 +175,16 @@ std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
 		// that need to be split
 		std::size_t cur = start;
 		while (cur < end) {
-			const std::size_t beg = cur;
-			cur++;
-
 			const bool prev_is_operator = tokens.empty()
 				|| tokens.back() == "+" || tokens.back() == "-"
 				|| tokens.back() == "*" || tokens.back() == "/"
 				|| tokens.back() == "(";
 
+			const std::size_t beg = cur;
 			const bool is_number =
-				std::isdigit(expr[beg], loc)
-				|| (expr[beg] == '-' && (beg + 1 < end) && std::isdigit(expr[beg + 1], loc) && prev_is_operator);
+				std::isdigit(expr[cur], loc)
+				|| (expr[cur] == '-' && (cur + 1 < end) && std::isdigit(expr[cur + 1], loc) && prev_is_operator);
+			cur++;
 
 			if (is_number) {
 				while (cur < end && std::isdigit(expr[cur], loc)) {
