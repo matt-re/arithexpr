@@ -9,13 +9,38 @@
 #include <string_view>
 #include <vector>
 
-// Replace with chk_add and co. in C++ 26  https://en.cppreference.com/cpp/header/stdckdint.h
-// Current implementation uses
+#if defined(__has_include) && __has_include(<stdckdint.h>)
+	#include <stdckdint.h>
+#endif
+
+#ifdef __STDC_VERSION_STDCKDINT_H__
+	#define CKD_ADD(R, A, B)  ckd_add((R), (A), (B))
+	#define CKD_SUB(R, A, B)  ckd_sub((R), (A), (B))
+	#define CKD_MUL(R, A, B)  ckd_mul((R), (A), (B))
+#elif defined(__has_builtin) && __has_builtin(__builtin_add_overflow) && __has_builtin(__builtin_sub_overflow) && __has_builtin(__builtin_mul_overflow)
+	#define CKD_ADD(R, A, B)  __builtin_add_overflow((A), (B), (R))
+	#define CKD_SUB(R, A, B)  __builtin_sub_overflow((A), (B), (R))
+	#define CKD_MUL(R, A, B)  __builtin_mul_overflow((A), (B), (R))
+#endif
+
+#ifndef CKD_ADD
+	#define CKD_ADD(R, A, B)  checked_add((R), (A), (B))
+#endif
+#ifndef CKD_SUB
+	#define CKD_SUB(R, A, B)  checked_sub((R), (A), (B))
+#endif
+#ifndef CKD_MUL
+	#define CKD_MUL(R, A, B)  checked_mul((R), (A), (B))
+#endif
+
+#define CKD_DIV(R, A, B)  checked_div((R), (A), (B))
+
+// Documentation for checked_* implementations
 // https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/integers-int/int32-c
 
-bool checked_add(int& result, int a, int b)
+bool checked_add(int* result, int a, int b)
 {
-	result = static_cast<int>(static_cast<unsigned int>(a) + static_cast<unsigned int>(b));
+	*result = static_cast<int>(static_cast<unsigned int>(a) + static_cast<unsigned int>(b));
 	if ((b > 0 && (a > std::numeric_limits<int>::max() - b)) ||
 	    (b < 0 && (a < std::numeric_limits<int>::min() - b))) {
 		return true;
@@ -23,9 +48,9 @@ bool checked_add(int& result, int a, int b)
 	return false;
 }
 
-bool checked_sub(int& result, int a, int b)
+bool checked_sub(int* result, int a, int b)
 {
-	result = static_cast<int>(static_cast<unsigned int>(a) - static_cast<unsigned int>(b));
+	*result = static_cast<int>(static_cast<unsigned int>(a) - static_cast<unsigned int>(b));
 	if ((b > 0 && (a < std::numeric_limits<int>::min() + b)) ||
 	    (b < 0 && (a > std::numeric_limits<int>::max() + b))) {
 		return true;
@@ -33,9 +58,9 @@ bool checked_sub(int& result, int a, int b)
 	return false;
 }
 
-bool checked_mul(int& result, int a, int b)
+bool checked_mul(int* result, int a, int b)
 {
-	result = static_cast<int>(static_cast<unsigned int>(a) * static_cast<unsigned int>(b));
+	*result = static_cast<int>(static_cast<unsigned int>(a) * static_cast<unsigned int>(b));
 	if (a > 0 && b > 0 && (a > std::numeric_limits<int>::max() / b)) return true;
 	if (a > 0 && b < 0 && (b < std::numeric_limits<int>::min() / a)) return true;
 	if (a < 0 && b > 0 && (a < std::numeric_limits<int>::min() / b)) return true;
@@ -43,17 +68,17 @@ bool checked_mul(int& result, int a, int b)
 	return false;
 }
 
-bool checked_div(int& result, int a, int b)
+bool checked_div(int* result, int a, int b)
 {
 	if (b == 0) {
-		result = 0;
+		*result = 0;
 		return true;
 	}
 	if (a == std::numeric_limits<int>::min() && b == -1) {
-		result = std::numeric_limits<int>::min();
+		*result = std::numeric_limits<int>::min();
 		return true;
 	}
-	result = a / b;
+	*result = a / b;
 	return false;
 }
 
@@ -76,16 +101,16 @@ std::optional<int> evaluate(std::span<const std::string_view> tokens)
 
 			switch (token[0]) {
 			case '+':
-				overflow = checked_add(result, a, b);
+				overflow = CKD_ADD(&result, a, b);
 				break;
 			case '-':
-				overflow = checked_sub(result, a, b);
+				overflow = CKD_SUB(&result, a, b);
 				break;
 			case '*':
-				overflow = checked_mul(result, a, b);
+				overflow = CKD_MUL(&result, a, b);
 				break;
 			case '/':
-				overflow = checked_div(result, a, b);
+				overflow = CKD_DIV(&result, a, b);
 				break;
 			}
 
@@ -417,7 +442,7 @@ bool run_checked_tests()
 	struct CheckedTestCase
 	{
 		const char* name;
-		bool (*fn)(int&, int, int);
+		bool (*fn)(int*, int, int);
 		int a;
 		int b;
 		bool overflow;
@@ -444,7 +469,7 @@ bool run_checked_tests()
 	bool success = true;
 	for (const auto& c : cases) {
 		int result = kUnwritten;
-		if (c.fn(result, c.a, c.b) == c.overflow && result == c.result) {
+		if (c.fn(&result, c.a, c.b) == c.overflow && result == c.result) {
 			std::cerr << "Passed " << c.name << "\n";
 		} else {
 			std::cerr << "Failed " << c.name << "\n";
