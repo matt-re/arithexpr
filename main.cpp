@@ -35,6 +35,15 @@
 
 #define CKD_DIV(R, A, B)  checked_div((R), (A), (B))
 
+enum class InfixState
+{
+	Begin,
+	Operand,
+	Operator,
+	OpenParen,
+	CloseParen
+};
+
 // Documentation for checked_* implementations
 // https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/integers-int/int32-c
 
@@ -140,10 +149,23 @@ std::optional<std::vector<std::string_view>> postfix_from_infix(std::span<const 
 	// Use the Shunting Yard algorithm to convert an infix expression to postfix expression
 	std::vector<std::string_view> result;
 	std::stack<std::string_view> stack;
+
+	InfixState state = InfixState::Begin;
+
 	for (std::string_view token : tokens) {
 		if (token == "(") {
+			if (state == InfixState::Operand || state == InfixState::CloseParen) {
+				return std::nullopt;
+			}
+			state = InfixState::OpenParen;
+
 			stack.push(token);
 		} else if (token == ")") {
+			if (state == InfixState::OpenParen || state == InfixState::Operator) {
+				return std::nullopt;
+			}
+			state = InfixState::CloseParen;
+
 			// On closing parenthesis copy all operators to result
 			while (!stack.empty() && stack.top() != "(") {
 				result.push_back(stack.top());
@@ -155,6 +177,11 @@ std::optional<std::vector<std::string_view>> postfix_from_infix(std::span<const 
 			}
 			stack.pop();
 		} else if (token == "+" || token == "-" || token == "*" || token == "/") {
+			if (state == InfixState::Begin || state == InfixState::Operator || state == InfixState::OpenParen) {
+				return std::nullopt;
+			}
+			state = InfixState::Operator;
+
 			// For this app all operators have the same precedence, as shown in the given spec document,
 			// therefore copy all operators pushed so far to result
 			// To support operators with different precedence then only pop operators with higher, or
@@ -165,10 +192,20 @@ std::optional<std::vector<std::string_view>> postfix_from_infix(std::span<const 
 			}
 			stack.push(token);
 		} else {
+			if (state == InfixState::Operand || state == InfixState::CloseParen) {
+				return std::nullopt;
+			}
+			state = InfixState::Operand;
+
 			// Copy number straight to result
 			result.push_back(token);
 		}
 	}
+
+	if (state == InfixState::Operator) {
+		return std::nullopt;
+	}
+
 	// Any remaining operators copy to result
 	while (!stack.empty()) {
 		if (stack.top() == "(") {
@@ -308,6 +345,10 @@ bool run_evaluate_tests()
 		"1)",
 		"1(",
 		nullptr,
+		"1 2 +",
+		"1 ( 2 + 3 )",
+		"( 1 + 2 ) 3",
+		"1 + 2 * * 3",
 	};
 	for (const auto& expr : bad_exprs) {
 		int result;
@@ -352,13 +393,24 @@ bool run_postfix_from_infix_tests()
 	std::vector<std::string_view> invalid_tokens[] = {
 		{ "(", "1", "+", "(", "12", "*", "2", ")" },
 		{ "1", "+", "(", "12", "*", "2", ")", ")" },
+		{ "1", "(", "2", "+", "3", ")" },
+		{ "(", "1", ")", "(", "2", ")" },
+		{ "(", ")" },
+		{ "(", "1", "+", ")" },
+		{ "+", "1" },
+		{ "1", "+", "+", "2" },
+		{ "(", "+", "1", "2", ")" },
+		{ "1", "+", "2", "3" },
+		{ "(", "1", "+", "2", ")", "3" },
+		{ "1", "2", "+" },
+		{ "(", },
 	};
 	for (const auto& tokens : invalid_tokens) {
 		const auto result = postfix_from_infix(tokens);
 		if (!result) {
 			std::cerr << "Passed Infix to Postfix Bad Expression " << tokens_to_string(tokens) << "\n";
 		} else {
-			std::cerr << "Failed Infix to Postfix Bad Expression " << tokens_to_string(tokens) << "\n";
+			std::cerr << "Failed Infix to Postfix Bad Expression " << tokens_to_string(tokens) << " Actual Result: " << tokens_to_string(*result) << "\n";
 			success = false;
 		}
 	}
