@@ -35,6 +35,10 @@
 
 #define CKD_DIV(R, A, B)  checked_div((R), (A), (B))
 
+#define USE_RECURSIVE_DESCENT_PARSER
+
+constexpr int kMaxNestedParenthesisDepth = 100;
+
 enum class InfixState
 {
 	Begin,
@@ -264,6 +268,97 @@ std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
 	return tokens;
 }
 
+std::optional<int> term(std::span<const std::string_view>& tokens, int depth);
+
+std::optional<int> expr(std::span<const std::string_view>& tokens, int depth)
+{
+	std::optional<int> accumulator = term(tokens, depth);
+	if (!accumulator) {
+		return std::nullopt;
+	}
+	for (;;) {
+		if (tokens.empty()) {
+			break;
+		}
+		std::string_view token = tokens[0];
+		if (!(token == "+" || token == "-" || token == "*" || token == "/")) {
+			break;
+		}
+		tokens = tokens.subspan(1);
+
+		std::optional<int> rhs = term(tokens, depth);
+		if (!rhs) {
+			return std::nullopt;
+		}
+
+		int result;
+		bool overflow = true;
+
+		switch (token[0]) {
+		case '+':
+			overflow = CKD_ADD(&result, *accumulator, *rhs);
+			break;
+		case '-':
+			overflow = CKD_SUB(&result, *accumulator, *rhs);
+			break;
+		case '*':
+			overflow = CKD_MUL(&result, *accumulator, *rhs);
+			break;
+		case '/':
+			overflow = CKD_DIV(&result, *accumulator, *rhs);
+			break;
+		}
+
+		if (overflow) {
+			return std::nullopt;
+		}
+		accumulator = result;
+	}
+	return accumulator;
+}
+
+std::optional<int> term(std::span<const std::string_view>& tokens, int depth)
+{
+	// Expect a number or "'(' expression ')'"
+	if (tokens.empty()) {
+		return std::nullopt;
+	}
+	std::string_view token = tokens[0];
+	if (token == "(") {
+		if (depth >= kMaxNestedParenthesisDepth) {
+			return std::nullopt;
+		}
+		tokens = tokens.subspan(1);
+		std::optional<int> value = expr(tokens, depth+1);
+		if (!value) {
+			return std::nullopt;
+		}
+		if (tokens.empty() || tokens[0] != ")") {
+			return std::nullopt;
+		}
+		tokens = tokens.subspan(1);
+		return value;
+	} else {
+		int value;
+		const char* end = token.data() + token.size();
+		auto [ptr, ec] = std::from_chars(token.data(), end, value);
+		if (ec != std::errc() || ptr != end) {
+			return std::nullopt;
+		}
+		tokens = tokens.subspan(1);
+		return value;
+	}
+}
+
+std::optional<int> parse_and_evaluate(std::span<const std::string_view> tokens)
+{
+	std::optional<int> result = expr(tokens, 0);
+	if (!result || !tokens.empty()) {
+		return std::nullopt;
+	}
+	return result;
+}
+
 bool evaluate(const char* expression, int& result)
 {
 	if (!expression) {
@@ -274,6 +369,10 @@ bool evaluate(const char* expression, int& result)
 	if (!tokens) {
 		return false;
 	}
+
+#ifdef USE_RECURSIVE_DESCENT_PARSER
+	std::optional<int> value = parse_and_evaluate(*tokens);
+#else
 	// Transform the infix expression to a postfix expression to make the evaluation easier
 	// by removing the parentheses and having explicit operator ordering
 	std::optional<std::vector<std::string_view>> postfix_tokens = postfix_from_infix(*tokens);
@@ -281,6 +380,7 @@ bool evaluate(const char* expression, int& result)
 		return false;
 	}
 	std::optional<int> value = evaluate(*postfix_tokens);
+#endif
 	if (!value) {
 		return false;
 	}
@@ -360,6 +460,18 @@ bool run_evaluate_tests()
 			}
 		} else {
 			std::cerr << "Failed Evaluate Bad Expression " << expr << "\n";
+			success = false;
+		}
+	}
+
+	{
+		constexpr int kInvalidParentheseCount = 1000 * 1000;
+		std::string deep(kInvalidParentheseCount, '(');
+		int result;
+		if (!evaluate(deep.c_str(), result)) {
+			std::cerr << "Passed Evaluate Too Many Parenthesis Expression\n";
+		} else {
+			std::cerr << "Failed Evaluate Too Many Parenthesis Expression\n";
 			success = false;
 		}
 	}
