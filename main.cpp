@@ -268,7 +268,46 @@ std::optional<std::vector<std::string_view>> tokenize(std::string_view expr)
 	return tokens;
 }
 
-std::optional<int> term(std::span<const std::string_view>& tokens, int depth);
+std::optional<int> factor(std::span<const std::string_view>& tokens, int depth);
+
+std::optional<int> term(std::span<const std::string_view>& tokens, int depth)
+{
+	std::optional<int> accumulator = factor(tokens, depth);
+	if (!accumulator) {
+		return std::nullopt;
+	}
+	for (;;) {
+		if (tokens.empty()) {
+			break;
+		}
+		std::string_view token = tokens[0];
+		if (!(token == "*" || token == "/")) {
+			break;
+		}
+		tokens = tokens.subspan(1);
+
+		std::optional<int> rhs = factor(tokens, depth);
+		if (!rhs) {
+			return std::nullopt;
+		}
+
+		int result;
+		bool overflow = true;
+		switch (token[0]) {
+		case '*':
+			overflow = CKD_MUL(&result, *accumulator, *rhs);
+			break;
+		case '/':
+			overflow = CKD_DIV(&result, *accumulator, *rhs);
+			break;
+		}
+		if (overflow) {
+			return std::nullopt;
+		}
+		accumulator = result;
+	}
+	return accumulator;
+}
 
 std::optional<int> expr(std::span<const std::string_view>& tokens, int depth)
 {
@@ -281,7 +320,7 @@ std::optional<int> expr(std::span<const std::string_view>& tokens, int depth)
 			break;
 		}
 		std::string_view token = tokens[0];
-		if (!(token == "+" || token == "-" || token == "*" || token == "/")) {
+		if (!(token == "+" || token == "-")) {
 			break;
 		}
 		tokens = tokens.subspan(1);
@@ -293,7 +332,6 @@ std::optional<int> expr(std::span<const std::string_view>& tokens, int depth)
 
 		int result;
 		bool overflow = true;
-
 		switch (token[0]) {
 		case '+':
 			overflow = CKD_ADD(&result, *accumulator, *rhs);
@@ -301,14 +339,7 @@ std::optional<int> expr(std::span<const std::string_view>& tokens, int depth)
 		case '-':
 			overflow = CKD_SUB(&result, *accumulator, *rhs);
 			break;
-		case '*':
-			overflow = CKD_MUL(&result, *accumulator, *rhs);
-			break;
-		case '/':
-			overflow = CKD_DIV(&result, *accumulator, *rhs);
-			break;
 		}
-
 		if (overflow) {
 			return std::nullopt;
 		}
@@ -317,7 +348,7 @@ std::optional<int> expr(std::span<const std::string_view>& tokens, int depth)
 	return accumulator;
 }
 
-std::optional<int> term(std::span<const std::string_view>& tokens, int depth)
+std::optional<int> factor(std::span<const std::string_view>& tokens, int depth)
 {
 	// Expect a number or "'(' expression ')'"
 	if (tokens.empty()) {
@@ -405,7 +436,12 @@ bool run_evaluate_tests()
 	bool success = true;
 
 	std::pair<const char*, int> inputs[] = {
-		{ "1 + 3 * 4",          16 },
+		{ "1 + 3 * 4",          13 },
+		{ "(1 + 3) * 4",        16 },
+		{ "3 * 4 + 1",          13 },
+		{ "100 / 4 * 3",        75 },
+		{ "100 / 5 * 5",       100 },
+		{ "100 / (5 * 5)",      4 },
 		{ "1 + 3",               4 },
 		{ "(1 + 3) * 2",         8 },
 		{ "(4 / 2) + 6",         8 },
